@@ -1,0 +1,39 @@
+name: Download and Double Compress
+
+on:
+  workflow_dispatch:
+    inputs:
+      download_url:
+        description: 'קישור להורדה'
+        required: true
+        type: string
+
+jobs:
+  download-and-compress:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download file
+        run: |
+          echo "מוריד מהקישור: ${{ github.event.inputs.download_url }}"
+          wget -O downloaded_file "${{ github.event.inputs.download_url }}" || curl -L -o downloaded_file "${{ github.event.inputs.download_url }}"
+          ls -lh downloaded_file
+      
+      - name: First compression
+        run: |
+          echo "דחיסה ראשונה..."
+          zip -r first_compress.zip downloaded_file
+          ls -lh first_compress.zip
+      
+      - name: Second compression
+        run: |
+          echo "דחיסה שנייה..."
+          zip -r final_double_compressed.zip first_compress.zip
+          ls -lh final_double_compressed.zip
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: double-compressed-file
+          path: final_double_compressed.zip
+          retention-days: 1
