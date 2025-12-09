@@ -13,22 +13,53 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Test internet connectivity
+        run: |
+          echo "בודק חיבור לאינטרנט..."
+          ping -c 3 google.com || echo "אזהרה: בעיה בחיבור"
+          
       - name: Download file
         run: |
+          echo "====================================="
           echo "מוריד מהקישור: ${{ github.event.inputs.download_url }}"
-          wget -O downloaded_file "${{ github.event.inputs.download_url }}" || curl -L -o downloaded_file "${{ github.event.inputs.download_url }}"
+          echo "====================================="
+          
+          # ניסיון עם wget
+          if wget --timeout=30 --tries=3 -O downloaded_file "${{ github.event.inputs.download_url }}"; then
+            echo "✅ הורדה הצליחה עם wget"
+          # ניסיון עם curl
+          elif curl -L --connect-timeout 30 --max-time 300 -o downloaded_file "${{ github.event.inputs.download_url }}"; then
+            echo "✅ הורדה הצליחה עם curl"
+          # ניסיון עם python
+          elif python3 -c "import urllib.request; urllib.request.urlretrieve('${{ github.event.inputs.download_url }}', 'downloaded_file')"; then
+            echo "✅ הורדה הצליחה עם python"
+          else
+            echo "❌ כל שיטות ההורדה נכשלו!"
+            echo "בדוק:"
+            echo "1. הקישור תקין וזמין"
+            echo "2. אין חסימה של NetFree או פיירוול"
+            echo "3. הקובץ קיים ונגיש"
+            exit 1
+          fi
+          
+          echo "====================================="
+          echo "פרטי הקובץ שהורד:"
           ls -lh downloaded_file
+          file downloaded_file
+          echo "====================================="
       
       - name: First compression
         run: |
           echo "דחיסה ראשונה..."
           zip -r first_compress.zip downloaded_file
+          echo "גודל לאחר דחיסה ראשונה:"
           ls -lh first_compress.zip
       
       - name: Second compression
         run: |
-          echo "דחיסה שנייה..."
+          echo "דחיסה שנייה (דחיסה כפולה)..."
           zip -r final_double_compressed.zip first_compress.zip
+          echo "גודל סופי:"
           ls -lh final_double_compressed.zip
       
       - name: Upload artifact
