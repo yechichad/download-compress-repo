@@ -63,7 +63,7 @@ jobs:
           ls -lh final_double_compressed.zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: double-compressed-file
           path: final_double_compressed.zip
