@@ -17,6 +17,13 @@ jobs:
         run: |
           echo "בודק חיבור לאינטרנט..."
           ping -c 3 google.com || echo "אזהרה: בעיה בחיבור"
+      
+      - name: Install yt-dlp for YouTube downloads
+        run: |
+          echo "מתקין yt-dlp לסרטוני יוטיוב..."
+          sudo apt-get update
+          sudo apt-get install -y python3-pip ffmpeg
+          pip3 install -U yt-dlp
           
       - name: Download file
         run: |
@@ -24,22 +31,49 @@ jobs:
           echo "מוריד מהקישור: ${{ github.event.inputs.download_url }}"
           echo "====================================="
           
-          # ניסיון עם wget
-          if wget --timeout=30 --tries=3 -O downloaded_file "${{ github.event.inputs.download_url }}"; then
-            echo "✅ הורדה הצליחה עם wget"
-          # ניסיון עם curl
-          elif curl -L --connect-timeout 30 --max-time 300 -o downloaded_file "${{ github.event.inputs.download_url }}"; then
-            echo "✅ הורדה הצליחה עם curl"
-          # ניסיון עם python
-          elif python3 -c "import urllib.request; urllib.request.urlretrieve('${{ github.event.inputs.download_url }}', 'downloaded_file')"; then
-            echo "✅ הורדה הצליחה עם python"
+          URL="${{ github.event.inputs.download_url }}"
+          
+          # בדיקה אם זה קישור יוטיוב
+          if [[ "$URL" =~ youtube\.com|youtu\.be ]]; then
+            echo "🎥 זוהה קישור יוטיוב - משתמש ב-yt-dlp"
+            echo "מוריד בפורמט הטוב ביותר..."
+            
+            if yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"                       --merge-output-format mp4                       -o "downloaded_file.%(ext)s"                       --no-playlist                       --progress                       "$URL"; then
+              echo "✅ הורדת יוטיוב הצליחה!"
+              # מצא את הקובץ שהורד
+              DOWNLOADED=$(ls downloaded_file.* 2>/dev/null | head -n1)
+              if [ -n "$DOWNLOADED" ]; then
+                mv "$DOWNLOADED" downloaded_file
+              fi
+            else
+              echo "❌ הורדת יוטיוב נכשלה!"
+              echo "בדוק:"
+              echo "1. הקישור תקין (יוטיוב בלבד, לא playlists)"
+              echo "2. הסרטון לא פרטי או מוגבל גיאוגרפית"
+              echo "3. יש חיבור אינטרנט תקין"
+              exit 1
+            fi
           else
-            echo "❌ כל שיטות ההורדה נכשלו!"
-            echo "בדוק:"
-            echo "1. הקישור תקין וזמין"
-            echo "2. אין חסימה של NetFree או פיירוול"
-            echo "3. הקובץ קיים ונגיש"
-            exit 1
+            # הורדה רגילה (לא יוטיוב)
+            echo "📥 הורדה רגילה של קובץ..."
+            
+            # ניסיון עם wget
+            if wget --timeout=30 --tries=3 -O downloaded_file "$URL"; then
+              echo "✅ הורדה הצליחה עם wget"
+            # ניסיון עם curl
+            elif curl -L --connect-timeout 30 --max-time 300 -o downloaded_file "$URL"; then
+              echo "✅ הורדה הצליחה עם curl"
+            # ניסיון עם python
+            elif python3 -c "import urllib.request; urllib.request.urlretrieve('$URL', 'downloaded_file')"; then
+              echo "✅ הורדה הצליחה עם python"
+            else
+              echo "❌ כל שיטות ההורדה נכשלו!"
+              echo "בדוק:"
+              echo "1. הקישור תקין וזמין"
+              echo "2. אין חסימה של NetFree או פיירוול"
+              echo "3. הקובץ קיים ונגיש"
+              exit 1
+            fi
           fi
           
           echo "====================================="
